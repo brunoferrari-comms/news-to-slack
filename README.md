@@ -8,6 +8,8 @@ by internal "news bots" like CapyNews.
 
 ## What you get
 
+![Example Slack post](docs/example-slack-post.png)
+
 A Slack post like this for every article you send:
 
 - A small chip with the publication name (e.g. `🌐 valor`)
