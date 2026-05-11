@@ -1,0 +1,28 @@
+name = "news-to-slack"
+main = "src/index.js"
+compatibility_date = "2025-05-01"
+
+# Your Cloudflare account id. Find it at https://dash.cloudflare.com/ (right sidebar).
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+# KV namespace used to store PINs (TTL ~10 min) and rate-limit counters.
+# Create with: npx wrangler kv namespace create NEWS_KV
+[[kv_namespaces]]
+binding = "PAXNEWS_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+# Restrict access to a single email domain (must include the leading @).
+ALLOWED_EMAIL_DOMAIN = "@yourcompany.com"
+# Channel ID (NOT the name) of the Slack channel to post into.
+# Find it: right-click the channel → View channel details → bottom of the panel.
+SLACK_NEWS_CHANNEL = "YOUR_SLACK_CHANNEL_ID"
+ANTHROPIC_MODEL = "claude-sonnet-4-5"
+# Bump this when you ship a new extension version so older builds are rejected.
+EXPECTED_EXTENSION_VERSION = "1.0.2"
+
+# Secrets — set via:
+#   npx wrangler secret put SLACK_BOT_TOKEN
+#   npx wrangler secret put ANTHROPIC_API_KEY
+#   npx wrangler secret put JWT_SECRET
+# See README for how to generate each one.

@@ -1,0 +1,14 @@
+{
+  "name": "news-to-slack-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker backend for the news-to-slack Chrome extension.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

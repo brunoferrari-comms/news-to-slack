@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PaxNews</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 340px; min-height: 400px;
+      font-family: 'Courier New', Courier, monospace;
+      background: #000; color: #999; padding: 20px; font-size: 12px;
+    }
+    .header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #222; }
+    .header h1 { font-size: 16px; color: #00d9ff; font-weight: normal; letter-spacing: 2px; margin-bottom: 4px; }
+    .header .version { font-size: 10px; color: #aaa; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .input-group { margin-bottom: 16px; }
+    .input-group label { display: block; font-size: 10px; color: #ccc; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+    input {
+      width: 100%; padding: 10px; background: #111;
+      border: 1px solid #222; border-radius: 4px;
+      color: #00d9ff; font-family: 'Courier New', Courier, monospace; font-size: 12px;
+      transition: border-color 0.2s;
+    }
+    input:focus { outline: none; border-color: #00d9ff; box-shadow: 0 0 8px rgba(0, 217, 255, 0.2); }
+    input::placeholder { color: #888; }
+    button {
+      width: 100%; padding: 12px; background: #00d9ff;
+      border: none; border-radius: 4px; color: #000;
+      font-family: 'Courier New', Courier, monospace; font-size: 11px; font-weight: bold;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+    }
+    button:hover:not(:disabled) { background: #00ffff; box-shadow: 0 0 12px rgba(0, 217, 255, 0.4); }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    button.secondary { background: transparent; border: 1px solid #222; color: #999; margin-top: 8px; }
+    button.secondary:hover:not(:disabled) { border-color: #00d9ff; color: #00d9ff; box-shadow: none; }
+    .pin-section { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #222; }
+    .pin-section.active { display: block; }
+    .user-info { background: #111; border: 1px solid #222; border-radius: 4px; padding: 16px; margin-bottom: 16px; }
+    .user-info .label { font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .user-info .value { color: #00d9ff; margin-bottom: 12px; }
+    .user-info .value:last-child { margin-bottom: 0; }
+    .message { padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 11px; line-height: 1.4; }
+    .message.error { background: rgba(255, 100, 100, 0.1); border: 1px solid rgba(255, 100, 100, 0.3); color: #ff6464; }
+    .message.success { background: rgba(0, 217, 255, 0.1); border: 1px solid rgba(0, 217, 255, 0.3); color: #00d9ff; }
+    .message.info { background: rgba(102, 102, 102, 0.1); border: 1px solid rgba(102, 102, 102, 0.3); color: #999; }
+    .spinner { width: 20px; height: 20px; border: 2px solid #222; border-top-color: #00d9ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 20px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading { text-align: center; padding: 20px; }
+    .hint { font-size: 10px; color: #555; margin-top: 8px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>paxnews</h1>
+    <div class="version" id="versionDisplay"></div>
+  </div>
+
+  <div id="loadingView" class="view">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div style="color: #444; font-size: 11px; margin-top: 12px;">loading...</div>
+    </div>
+  </div>
+
+  <div id="loginView" class="view">
+    <div id="message"></div>
+    <div class="input-group">
+      <label for="email">email address</label>
+      <input type="email" id="email" placeholder="you@yourcompany.com" autocomplete="email">
+    </div>
+    <button id="requestPinBtn">request pin</button>
+
+    <div id="pinSection" class="pin-section">
+      <div class="input-group">
+        <label>enter pin</label>
+        <input type="text" id="pinInput" placeholder="pin from slack dm" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <button id="verifyPinBtn" disabled>verify pin</button>
+    </div>
+    <div class="hint">a 6-digit pin will be sent to your slack dm.</div>
+  </div>
+
+  <div id="loggedInView" class="view">
+    <div class="user-info">
+      <div class="label">user</div>
+      <div class="value" id="userName">—</div>
+      <div class="label">email</div>
+      <div class="value" id="userEmail">—</div>
+    </div>
+    <button class="secondary" id="logoutBtn">logout</button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Secrets — never commit
+.secrets/
+.dev.vars
+.env
+.env.*
+!.env.example
+
+# Local config with real values (templates committed as *.example)
+worker/wrangler.toml
+extension/config.js
+
+# Dependencies & build artifacts
+node_modules/
+.wrangler/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
