@@ -42,13 +42,16 @@ export default {
       if (url.pathname === '/auth/verify-pin' && request.method === 'POST') {
         return await handleVerifyPin(request, env);
       }
+      if (url.pathname === '/auth/logout' && request.method === 'POST') {
+        return await handleLogout(request, env);
+      }
       if (url.pathname === '/api/analyze' && request.method === 'POST') {
         return await handleAnalyze(request, env);
       }
       return json({ error: 'not found' }, 404);
     } catch (e) {
       console.error('Worker error:', e);
-      return serverError(e.message || 'internal error');
+      return serverError();
     }
   }
 };
@@ -108,10 +111,10 @@ async function hmacKey(secret) {
   return crypto.subtle.importKey('raw', utf8(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 
-async function signJwt(payload, secret, ttlSeconds = 60 * 60 * 24 * 30) {
+async function signJwt(payload, secret, ttlSeconds = 60 * 60 * 24 * 7) {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
-  const body = { iat: now, exp: now + ttlSeconds, ...payload };
+  const body = { iat: now, exp: now + ttlSeconds, ...payload, jti: crypto.randomUUID() };
   const h = b64urlEncode(utf8(JSON.stringify(header)));
   const p = b64urlEncode(utf8(JSON.stringify(body)));
   const data = `${h}.${p}`;
@@ -120,7 +123,7 @@ async function signJwt(payload, secret, ttlSeconds = 60 * 60 * 24 * 30) {
   return { token: `${data}.${b64urlEncode(sig)}`, expiresAt: new Date(body.exp * 1000).toISOString() };
 }
 
-async function verifyJwt(token, secret) {
+async function verifyJwt(token, secret, env) {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -132,11 +135,16 @@ async function verifyJwt(token, secret) {
   let diff = 0;
   for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ actual[i];
   if (diff !== 0) return null;
+  let payload;
   try {
-    const payload = JSON.parse(fromUtf8(b64urlDecode(p)));
-    if (payload.exp && Math.floor(Date.now() / 1000) >= payload.exp) return null;
-    return payload;
+    payload = JSON.parse(fromUtf8(b64urlDecode(p)));
   } catch { return null; }
+  if (payload.exp && Math.floor(Date.now() / 1000) >= payload.exp) return null;
+  if (payload.jti && env?.PAXNEWS_KV) {
+    const revoked = await env.PAXNEWS_KV.get(`rev:${payload.jti}`);
+    if (revoked) return null;
+  }
+  return payload;
 }
 
 // ---------------- Slack ----------------
@@ -175,7 +183,7 @@ async function postNewsToChannel(env, { meta, url, siteName }) {
   // meta = { emoji, title, summary, tags }
   const safeSite = (siteName || '').trim().toLowerCase();
   const tagsLine = (meta.tags || []).length
-    ? (meta.tags || []).map((t) => `\`${String(t).trim()}\``).join('  ')
+    ? (meta.tags || []).map((t) => `\`${escapeMrkdwn(String(t).trim())}\``).join('  ')
     : '';
 
   const blocks = [];
@@ -201,7 +209,7 @@ async function postNewsToChannel(env, { meta, url, siteName }) {
   // Single-paragraph summary (rendered as a Slack blockquote — gray box with vertical bar)
   const quotedSummary = (meta.summary || '')
     .split('\n')
-    .map((line) => `> ${line}`)
+    .map((line) => `> ${escapeMrkdwn(line)}`)
     .join('\n');
   blocks.push({
     type: 'section',
@@ -235,7 +243,7 @@ async function postNewsToChannel(env, { meta, url, siteName }) {
   });
 
   // Fallback text (notifications / clients without block support)
-  const text = `${meta.emoji || '📰'} ${meta.title || 'PaxNews item'}\n${meta.summary || ''}\n${url}`;
+  const text = `${meta.emoji || '📰'} ${escapeMrkdwn(meta.title || 'PaxNews item')}\n${escapeMrkdwn(meta.summary || '')}\n${escapeMrkdwn(url)}`;
 
   const res = await slackApi(env, 'chat.postMessage', {
     channel: env.SLACK_NEWS_CHANNEL,
@@ -249,7 +257,7 @@ async function postNewsToChannel(env, { meta, url, siteName }) {
   // Post detailed bullets as a thread reply (more depth for readers who want it)
   if (Array.isArray(meta.bullets) && meta.bullets.length && res.ts) {
     const bulletText = meta.bullets
-      .map((b) => `• ${String(b).trim()}`)
+      .map((b) => `• ${escapeMrkdwn(String(b).trim())}`)
       .join('\n\n');
     await slackApi(env, 'chat.postMessage', {
       channel: res.channel || env.SLACK_NEWS_CHANNEL,
@@ -389,7 +397,7 @@ async function handleRequestAccess(request, env) {
 
   const user = await lookupSlackUserByEmail(env, email);
   if (!user) {
-    return badRequest('no slack user found for this email. ask your admin to invite you to the workspace.');
+    return json({ ok: true });
   }
 
   const pin = generatePin();
@@ -454,7 +462,7 @@ async function handleVerifyPin(request, env) {
 async function handleAnalyze(request, env) {
   const auth = request.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  const payload = await verifyJwt(token, env.JWT_SECRET);
+  const payload = await verifyJwt(token, env.JWT_SECRET, env);
   if (!payload) return unauthorized('invalid or expired token');
 
   const rl = await rateLimited(env, `analyze:${payload.sub}`, 20, 60); // 20 per minute per user
@@ -495,4 +503,18 @@ async function handleAnalyze(request, env) {
         request.headers.get('X-Extension-Version') !== env.EXPECTED_EXTENSION_VERSION
     }
   });
+}
+
+async function handleLogout(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const payload = await verifyJwt(token, env.JWT_SECRET, env);
+  if (!payload) return unauthorized('invalid or expired token');
+  if (payload.jti && payload.exp) {
+    const ttl = payload.exp - Math.floor(Date.now() / 1000);
+    if (ttl > 0) {
+      await env.PAXNEWS_KV.put(`rev:${payload.jti}`, '1', { expirationTtl: ttl });
+    }
+  }
+  return json({ ok: true });
 }
