@@ -111,7 +111,7 @@ async function hmacKey(secret) {
   return crypto.subtle.importKey('raw', utf8(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 
-async function signJwt(payload, secret, ttlSeconds = 60 * 60 * 24 * 7) {
+async function signJwt(payload, secret, ttlSeconds = 60 * 60 * 24 * 30) {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const body = { iat: now, exp: now + ttlSeconds, ...payload, jti: crypto.randomUUID() };
