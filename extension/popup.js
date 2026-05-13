@@ -139,6 +139,16 @@ async function handleVerifyPin() {
 }
 
 async function handleLogout() {
+  if (authToken && WORKER_URL && !WORKER_URL.includes('YOUR-SUBDOMAIN')) {
+    try {
+      await fetch(`${WORKER_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+    } catch (error) {
+      console.warn('[Popup] Logout request failed; clearing local state anyway:', error);
+    }
+  }
   await chrome.storage.local.remove(['authToken', 'authEmail', 'authName', 'authExpiresAt']);
   authToken = null;
   currentEmail = '';
